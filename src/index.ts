@@ -85,11 +85,13 @@ app.get("/auth/:provider", (c) => {
     return c.json({ error: `Missing ${provider.name.toUpperCase()}_CLIENT_ID` }, 500);
   }
 
+  const state = crypto.randomUUID().replace(/-/g, "");
   const baseParams: Record<string, string> = {
     response_type: "code",
     client_id: clientId,
     redirect_uri: callbackUrl(provider.name),
     scope: provider.scopes.join(provider.scopeSeparator ?? " "),
+    state,
   };
   const authParams = provider.buildAuthParams ? provider.buildAuthParams(baseParams) : baseParams;
 
