@@ -34,15 +34,6 @@ function makeTokenShape(token: ReturnType<typeof getToken>) {
 }
 
 app.get("/", (c) => {
-  // Landing page shows connect links only with API key
-  const apiKey = process.env.API_KEY;
-  const incoming = c.req.header("X-Api-Key") || c.req.query("key");
-  const authed = apiKey && incoming === apiKey;
-
-  if (!authed) {
-    return c.json({ service: "token-refresh", status: "ok", message: "Use /status with X-Api-Key for details." });
-  }
-
   const providers = listProviders().map((p) => ({
     name: p.name,
     auth_path: `/auth/${p.name}`,
@@ -73,30 +64,18 @@ app.get("/", (c) => {
       .map(
         (p) => `<div class="card">
             <h2>${p.name}</h2>
-            <p><a href="${p.auth_path}?key=${apiKey}">Connect ${p.name}</a></p>
+            <p><a href="${p.auth_path}">Connect ${p.name}</a></p>
             <p>Auth: <code>${p.auth_path}</code><br/>Callback: <code>${p.callback_path}</code></p>
             <p>Scopes: <code>${p.scopes.join(" ")}</code></p>
           </div>`,
       )
       .join("\n")}
-    <p>Private endpoints require <code>X-Api-Key</code>.</p>
+    <p><code>/tokens/:provider</code> and <code>/refresh/:provider</code> require <code>X-Api-Key</code> header.</p>
   </body>
 </html>`);
 });
 
-// Auth initiation requires API key (query param or header) to prevent random people from starting OAuth flows
-function authGate(c: any): boolean {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) return false;
-  const incoming = c.req.header("X-Api-Key") || c.req.query("key");
-  return incoming === apiKey;
-}
-
 app.get("/auth/:provider", (c) => {
-  if (!authGate(c)) {
-    return c.json({ error: "Unauthorized. Pass ?key=<API_KEY> or X-Api-Key header." }, 401);
-  }
-
   const providerName = c.req.param("provider").toLowerCase();
   const provider = getProvider(providerName);
   if (!provider) return c.json({ error: "Unknown provider" }, 404);
@@ -218,7 +197,7 @@ app.post("/refresh/:provider", apiKeyAuth, async (c) => {
   return c.json(result);
 });
 
-app.get("/status", apiKeyAuth, (c) => {
+app.get("/status", (c) => {
   const now = Math.floor(Date.now() / 1000);
   const byProvider = new Map(getAllTokens().map((t) => [t.provider, t]));
 
