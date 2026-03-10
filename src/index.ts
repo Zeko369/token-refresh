@@ -19,8 +19,7 @@ function callbackUrl(providerName: string) {
   return `${baseUrl.replace(/\/$/, "")}/auth/${providerName}/callback`;
 }
 
-function makeTokenShape(token: ReturnType<typeof getToken>) {
-  if (!token) return null;
+function makeTokenShape(token: NonNullable<ReturnType<typeof getToken>>) {
   return {
     provider: token.provider,
     access_token: token.access_token,
@@ -144,7 +143,7 @@ app.get("/auth/:provider/callback", async (c) => {
     return c.json({ error: "Token exchange failed", status: response.status, body }, 400);
   }
 
-  const payload = await response.json();
+  const payload = (await response.json()) as Record<string, unknown>;
   const now = Math.floor(Date.now() / 1000);
   const expiresIn = Number(payload.expires_in ?? 0);
   const expiresAtFromProvider = Number(payload.expires_at ?? 0);
@@ -175,12 +174,12 @@ app.get("/auth/:provider/callback", async (c) => {
   return c.json({
     ok: true,
     provider: provider.name,
-    token: makeTokenShape(getToken(provider.name)),
+    token: savedToken ? makeTokenShape(savedToken) : null,
   });
 });
 
 app.get("/tokens/:provider", apiKeyAuth, (c) => {
-  const providerName = c.req.param("provider").toLowerCase();
+  const providerName = c.req.param("provider")!.toLowerCase();
   const provider = getProvider(providerName);
   if (!provider) return c.json({ error: "Unknown provider" }, 404);
 
@@ -191,7 +190,7 @@ app.get("/tokens/:provider", apiKeyAuth, (c) => {
 });
 
 app.post("/refresh/:provider", apiKeyAuth, async (c) => {
-  const providerName = c.req.param("provider").toLowerCase();
+  const providerName = c.req.param("provider")!.toLowerCase();
   const provider = getProvider(providerName);
   if (!provider) return c.json({ error: "Unknown provider" }, 404);
 
