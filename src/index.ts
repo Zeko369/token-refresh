@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { getAllTokens, getToken, upsertToken } from "./db";
 import { apiKeyAuth } from "./middleware";
 import { getProvider, listProviders } from "./providers";
-import { refreshProviderToken, startAutoRefresh } from "./refresh";
+import { refreshProviderToken, startAutoRefresh, syncToExternalFile } from "./refresh";
 
 const app = new Hono();
 
@@ -70,6 +70,10 @@ app.get("/", (c) => {
           </div>`,
       )
       .join("\n")}
+    <div class="card" style="background: #f0f9ff;">
+      <h2>📊 Status</h2>
+      <p><a href="/status">View provider status</a> — check token health and expiry times.</p>
+    </div>
     <p><code>/tokens/:provider</code> and <code>/refresh/:provider</code> require <code>X-Api-Key</code> header.</p>
   </body>
 </html>`);
@@ -164,6 +168,9 @@ app.get("/auth/:provider/callback", async (c) => {
     scope: payload.scope ? String(payload.scope) : null,
     token_type: payload.token_type ? String(payload.token_type) : "bearer",
   });
+
+  const savedToken = getToken(provider.name);
+  if (savedToken) syncToExternalFile(provider.name, savedToken);
 
   return c.json({
     ok: true,

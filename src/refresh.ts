@@ -1,5 +1,37 @@
+import { writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import type { OAuthProvider } from "./providers";
 import { getAllTokens, getToken, upsertToken, type TokenRecord } from "./db";
+
+/**
+ * Sync token to external consumer files (e.g. whoopskill's ~/.whoop-cli/tokens.json)
+ */
+const EXTERNAL_TOKEN_SINKS: Record<string, string> = {
+  whoop: join(homedir(), ".whoop-cli", "tokens.json"),
+};
+
+export function syncToExternalFile(provider: string, token: TokenRecord) {
+  const sinkPath = EXTERNAL_TOKEN_SINKS[provider];
+  if (!sinkPath) return;
+
+  try {
+    const dir = join(sinkPath, "..");
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
+
+    const data = {
+      access_token: token.access_token,
+      refresh_token: token.refresh_token,
+      expires_at: token.expires_at,
+      token_type: token.token_type ?? "bearer",
+      scope: token.scope ?? "",
+    };
+    writeFileSync(sinkPath, JSON.stringify(data, null, 2));
+    console.log(`[sync] Wrote ${provider} token to ${sinkPath}`);
+  } catch (err) {
+    console.error(`[sync] Failed to write ${provider} token to ${sinkPath}:`, err);
+  }
+}
 
 export type RefreshResult = {
   ok: boolean;
@@ -88,6 +120,8 @@ export async function refreshProviderToken(
 
   upsertToken({ provider: provider.name, ...parsed });
   const updated = getToken(provider.name);
+
+  if (updated) syncToExternalFile(provider.name, updated);
 
   return {
     ok: true,
