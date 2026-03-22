@@ -10,10 +10,12 @@ export interface OAuthProvider {
 
 import { whoopProvider } from "./whoop";
 import { stravaProvider } from "./strava";
+import { spotifyProvider } from "./spotify";
 
 export const providers: Record<string, OAuthProvider> = {
   whoop: whoopProvider,
   strava: stravaProvider,
+  spotify: spotifyProvider,
 };
 
 export function getProvider(provider: string): OAuthProvider | null {
